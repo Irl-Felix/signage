@@ -1,0 +1,14 @@
+name: Setup CI Ready
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: No-op step
+        run: echo "CI pipeline ready ((Edit later))"
