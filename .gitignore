@@ -1,0 +1,7 @@
+**/.env
+.env**
+**.http
+
+services/public
+auth-service
+signage_pgdata/

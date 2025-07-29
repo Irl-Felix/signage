@@ -7,8 +7,16 @@ on:
     branches: [main, staging]
 
 jobs:
-  noop:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: No-op step
-        run: echo "CI pipeline ready ((Edit later))"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build
+        run: go build -v ./services/auth

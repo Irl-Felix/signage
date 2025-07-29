@@ -1,0 +1,32 @@
+# Ignore version control
+.git
+.gitignore
+
+.vscode
+.idea
+*.swp
+
+.DS_Store
+Thumbs.db
+services/public
+
+# Ignore Go build artifacts
+bin/
+*.exe
+*.out
+*.test
+
+# Ignore other services you don’t need in this build
+./services/db/
+
+# Ignore node stuff if present
+node_modules/
+dist/
+
+.env
+.env.*
+*.http
+
+README.md
+docker-compose.yml
+auth-service
