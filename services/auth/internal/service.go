@@ -1,3 +1,6 @@
+// UserStats holds counts of users by status
+
+// GetUserStats returns counts of users by status
 package internal
 
 import (
@@ -11,16 +14,18 @@ type AuthService struct {
 	DB *sql.DB
 }
 
+
+
 // =============================
 // Role Management
 // =============================
 
 func (s *AuthService) CreateRole(role *Role) error {
 	return s.DB.QueryRow(`
-		INSERT INTO Role (id, role_code, name, scope)
-		VALUES (gen_random_uuid(), $1, $2, $3)
-		RETURNING id`,
-		role.RoleCode, role.Name, role.Scope,
+	INSERT INTO Role (id, role_code, name, scope)
+	VALUES (gen_random_uuid(), $1, $2, $3)
+	RETURNING id`,
+	role.RoleCode, role.Name, role.Scope,
 	).Scan(&role.ID)
 }
 
@@ -30,7 +35,7 @@ func (s *AuthService) ListRoles() ([]Role, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
+	
 	var roles []Role
 	for rows.Next() {
 		var r Role
@@ -45,7 +50,7 @@ func (s *AuthService) ListRoles() ([]Role, error) {
 func (s *AuthService) GetRole(id string) (*Role, error) {
 	var role Role
 	err := s.DB.QueryRow(`SELECT id, role_code, name, scope FROM Role WHERE id = $1`, id).
-		Scan(&role.ID, &role.RoleCode, &role.Name, &role.Scope)
+	Scan(&role.ID, &role.RoleCode, &role.Name, &role.Scope)
 	if err != nil {
 		return nil, err
 	}
@@ -252,24 +257,52 @@ func (s *AuthService) GetUserBySupabaseUID(uid string) (*UserProfile, error) {
 	return &user, nil
 }
 
-func (s *AuthService) ListUsers() ([]auth.UserProfilePlain, error) {
-	rows, err := s.DB.Query(`
-			   SELECT id, supabase_uid, first_name, last_name, email, phone, profile_picture_url, preferred_language, created_at
-			   FROM UserProfile`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+type UserProfileWithStatus struct {
+	   ID                string    `json:"id"`
+	   SupabaseUID       string    `json:"supabase_uid"`
+	   FirstName         string    `json:"first_name"`
+	   LastName          string    `json:"last_name"`
+	   Email             string    `json:"email"`
+	   Phone             string    `json:"phone"`
+	   ProfilePictureURL string    `json:"profile_picture_url"`
+	   Status            string    `json:"status"`
+	   PreferredLanguage string    `json:"preferred_language"`
+	   CreatedAt         time.Time `json:"created_at"`
+}
 
-	var users []auth.UserProfilePlain
-	for rows.Next() {
-		var u auth.UserProfile
-		if err := rows.Scan(&u.ID, &u.SupabaseUID, &u.FirstName, &u.LastName, &u.Email, &u.Phone, &u.ProfilePictureURL, &u.PreferredLanguage, &u.CreatedAt); err != nil {
-			return nil, err
-		}
-		users = append(users, u.ToPlain())
-	}
-	return users, nil
+func (s *AuthService) ListUsers() ([]UserProfileWithStatus, error) {
+	   rows, err := s.DB.Query(`
+				  SELECT id, supabase_uid, first_name, last_name, email, phone, profile_picture_url, status, preferred_language, created_at
+				  FROM UserProfile`)
+	   if err != nil {
+			   return nil, err
+	   }
+	   defer rows.Close()
+
+	   var users []UserProfileWithStatus
+	   for rows.Next() {
+			   var (
+					   id, supabaseUID, firstName, lastName, email, phone, profilePictureURL, status, preferredLanguage sql.NullString
+					   createdAt time.Time
+			   )
+			   if err := rows.Scan(&id, &supabaseUID, &firstName, &lastName, &email, &phone, &profilePictureURL, &status, &preferredLanguage, &createdAt); err != nil {
+					   return nil, err
+			   }
+			   u := UserProfileWithStatus{
+					   ID:                id.String,
+					   SupabaseUID:       supabaseUID.String,
+					   FirstName:         firstName.String,
+					   LastName:          lastName.String,
+					   Email:             email.String,
+					   Phone:             phone.String,
+					   ProfilePictureURL: profilePictureURL.String,
+					   Status:            status.String,
+					   PreferredLanguage: preferredLanguage.String,
+					   CreatedAt:         createdAt,
+			   }
+			   users = append(users, u)
+	   }
+	   return users, nil
 }
 
 // =============================
@@ -486,4 +519,66 @@ func (s *AuthService) RemoveUserRole(userID, roleCode string) error {
 	}
 	_, err = s.DB.Exec(`DELETE FROM UserRoleAssignment WHERE user_id = $1 AND role_id = $2`, userID, roleID)
 	return err
+}
+
+// GetUserInfo returns user info, roles, and status
+func (s *AuthService) GetUserInfo(userID string) (user UserProfile, roles []map[string]string, status string, err error) {
+	   var (
+			   id, supabaseUID, firstName, lastName, email, phone, profilePictureURL, preferredLanguage sql.NullString
+			   createdAt time.Time
+	   )
+	   err = s.DB.QueryRow(`SELECT id, supabase_uid, first_name, last_name, email, phone, profile_picture_url, preferred_language, created_at FROM UserProfile WHERE id = $1`, userID).Scan(
+			   &id, &supabaseUID, &firstName, &lastName, &email, &phone, &profilePictureURL, &preferredLanguage, &createdAt)
+	   if err != nil {
+			   return
+	   }
+	   user = UserProfile{
+			   ID:                id.String,
+			   SupabaseUID:       supabaseUID.String,
+			   FirstName:         firstName.String,
+			   LastName:          lastName.String,
+			   Email:             email.String,
+			   Phone:             phone.String,
+			   ProfilePictureURL: profilePictureURL.String,
+			   PreferredLanguage: preferredLanguage.String,
+			   CreatedAt:         createdAt,
+	   }
+	   rows, err := s.DB.Query(`SELECT r.role_code, r.name FROM UserRoleAssignment ura JOIN Role r ON ura.role_id = r.id WHERE ura.user_id = $1`, userID)
+	   if err != nil {
+			   return
+	   }
+	   defer rows.Close()
+	   for rows.Next() {
+			   var code, name string
+			   if err = rows.Scan(&code, &name); err != nil {
+					   return
+			   }
+			   roles = append(roles, map[string]string{"code": code, "name": name})
+	   }
+	   var isActive bool
+	   err = s.DB.QueryRow(`SELECT is_active FROM SessionLog WHERE user_id = $1 ORDER BY login_at DESC LIMIT 1`, userID).Scan(&isActive)
+	   if err != nil {
+			   status = "unknown"
+	   } else if isActive {
+			   status = "active"
+	   } else {
+			   status = "inactive"
+	   }
+	   return
+}
+
+
+func (s *AuthService) GetUserStats() (*UserStats, error) {
+	var stats UserStats
+	query := `SELECT
+	COUNT(*) AS total_users,
+	COUNT(*) FILTER (WHERE status = 'active') AS active_users,
+	COUNT(*) FILTER (WHERE status = 'pending') AS pending_users,
+	COUNT(*) FILTER (WHERE status = 'suspended') AS suspended_users
+	FROM UserProfile;`
+	err := s.DB.QueryRow(query).Scan(&stats.TotalUsers, &stats.ActiveUsers, &stats.PendingUsers, &stats.SuspendedUsers)
+	if err != nil {
+		return nil, err
+	}
+	return &stats, nil
 }

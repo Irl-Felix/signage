@@ -39,3 +39,10 @@ type RolePermission struct {
 	RoleID       string
 	PermissionID string
 }
+
+type UserStats struct {
+	TotalUsers     int `json:"total_users"`
+	ActiveUsers    int `json:"active_users"`
+	PendingUsers   int `json:"pending_users"`
+	SuspendedUsers int `json:"suspended_users"`
+}

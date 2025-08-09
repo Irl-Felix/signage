@@ -1,0 +1,4 @@
+INSERT INTO UserRoleAssignment (user_id, role_id, business_id, location_id, is_owner) VALUES
+((SELECT id FROM UserProfile WHERE email='alice.chen@example.com'), (SELECT id FROM Role WHERE role_code='SYS_ADMIN'), NULL, NULL, FALSE),
+((SELECT id FROM UserProfile WHERE email='bob.wang@example.com'), (SELECT id FROM Role WHERE role_code='BUSINESS_OWNER'), (SELECT id FROM Business WHERE name='TechNova Solutions'), NULL, TRUE),
+((SELECT id FROM UserProfile WHERE email='charlie.lin@example.com'), (SELECT id FROM Role WHERE role_code='BRANCH_MANAGER'), (SELECT id FROM Business WHERE name='GlobalMart Retail'), (SELECT id FROM Location WHERE name='Downtown Store'), FALSE);

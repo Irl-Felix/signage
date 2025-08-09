@@ -1,10 +1,9 @@
-
 package auth
 
-import "time"
-
-
-import "database/sql"
+import (
+	"database/sql"
+	"time"
+)
 
 type UserProfile struct {
     ID                string         // UUID
@@ -14,6 +13,7 @@ type UserProfile struct {
     Email             string
     Phone             sql.NullString
     ProfilePictureURL sql.NullString
+    Status            string         // 'active', 'inactive', 'banned'
     PreferredLanguage sql.NullString
     CreatedAt         time.Time
 }

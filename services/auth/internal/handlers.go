@@ -241,27 +241,34 @@ func (h *Handler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 // --- User Management ---
 
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.Service.ListUsers()
-	if err != nil {
-		util.HandleError(w, err, "Failed to list users", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	   users, err := h.Service.ListUsers()
+	   if err != nil {
+			   util.HandleError(w, err, "Failed to list users", http.StatusInternalServerError)
+			   return
+	   }
+	   w.Header().Set("Content-Type", "application/json")
+	   json.NewEncoder(w).Encode(map[string]interface{}{
+			   "users": users,
+	   })
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	// Expecting /admin/users/:id, extract id from URL
-	id := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
-	var user UserProfile
-	err := h.Service.DB.QueryRow(`SELECT id, supabase_uid, first_name, last_name, email, phone, profile_picture_url, preferred_language, created_at FROM UserProfile WHERE id = $1`, id).Scan(
-		&user.ID, &user.SupabaseUID, &user.FirstName, &user.LastName, &user.Email, &user.Phone, &user.ProfilePictureURL, &user.PreferredLanguage, &user.CreatedAt)
-	if err != nil {
-		util.HandleError(w, err, "User not found", http.StatusNotFound)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	   id := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+	   var (
+			   user UserProfile
+			   profilePictureURL, preferredLanguage sql.NullString
+	   )
+	   err := h.Service.DB.QueryRow(`SELECT id, supabase_uid, first_name, last_name, email, phone, profile_picture_url, preferred_language, created_at FROM UserProfile WHERE id = $1`, id).Scan(
+			   &user.ID, &user.SupabaseUID, &user.FirstName, &user.LastName, &user.Email, &user.Phone, &profilePictureURL, &preferredLanguage, &user.CreatedAt)
+	   if err != nil {
+			   util.HandleError(w, err, "User not found", http.StatusNotFound)
+			   return
+	   }
+	   user.ProfilePictureURL = profilePictureURL.String
+	   user.PreferredLanguage = preferredLanguage.String
+	   w.Header().Set("Content-Type", "application/json")
+	   json.NewEncoder(w).Encode(user)
 }
 
 func (h *Handler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
@@ -816,4 +823,15 @@ func (h *Handler) RemoveUserRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "User role removed",
 	})
+}
+
+// UserStatsHandler returns user statistics (counts by status)
+func (h *Handler) UserStatsHandler(w http.ResponseWriter, r *http.Request) {
+	   stats, err := h.Service.GetUserStats()
+	   if err != nil {
+			   util.HandleError(w, err, "Failed to get user stats", http.StatusInternalServerError)
+			   return
+	   }
+	   w.Header().Set("Content-Type", "application/json")
+	   json.NewEncoder(w).Encode(stats)
 }

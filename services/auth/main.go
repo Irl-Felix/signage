@@ -52,12 +52,16 @@ func main() {
 	// Admin Endpoints (Require \"MANAGE_USERS\" Permission)
 	// ==============================
 
-	// --- User Management ---
-	http.HandleFunc("GET /admin/users", auth.Middleware("MANAGE_USERS")(handler.ListUsers))    // List all users
-	http.HandleFunc("GET /admin/users/{id}", auth.Middleware("MANAGE_USERS")(handler.GetUser)) // Get a specific user by ID
-	http.HandleFunc("POST /admin/users/assign-role", (handler.AssignUserRole))                 // Assign a role to a user
-	http.HandleFunc("GET /admin/users/{id}/permissions", (handler.GetUserPermissions))         // Get permissions for a specific user
-	http.HandleFunc("DELETE /admin/users/{id}", auth.Middleware("MANAGE_USERS")(handler.DeleteUser))
+	   // --- User Management ---
+	   http.HandleFunc("GET /admin/users", (handler.ListUsers))    // List all users
+	   http.HandleFunc("GET /admin/users/{id}", auth.Middleware("MANAGE_USERS")(handler.GetUser)) // Get a specific user by ID
+	   http.HandleFunc("POST /admin/users/assign-role", (handler.AssignUserRole))                 // Assign a role to a user
+	   http.HandleFunc("GET /admin/users/{id}/permissions", (handler.GetUserPermissions))         // Get permissions for a specific user
+	   http.HandleFunc("DELETE /admin/users/{id}", auth.Middleware("MANAGE_USERS")(handler.DeleteUser))
+	   http.HandleFunc("GET /admin/users/stats", (handler.UserStatsHandler)) // User stats endpoint
+
+	// --- Get user info with role and status ---
+	// http.HandleFunc("GET /admin/users/{id}/info", auth.Middleware("MANAGE_USERS")(handler.GetUserInfo)) // Get user info with role and status
 
 	http.HandleFunc("GET /admin/users/roles", (handler.ListUserRoles))                  // List all roles assigned to users
 	http.HandleFunc("GET /admin/users/permissions", (handler.ListUsersWithPermissions)) // List all users with their permissions

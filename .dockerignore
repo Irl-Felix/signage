@@ -1,32 +1,80 @@
-# Ignore version control
+# ----------------------------
+# Version control
+# ----------------------------
 .git
 .gitignore
 
-.vscode
-.idea
+# ----------------------------
+# Environment & config files
+# ----------------------------
+.env
+.env.*
+*.http
+
+# ----------------------------
+# Logs
+# ----------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ----------------------------
+# Dependencies & build output
+# ----------------------------
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+*.tsbuildinfo
+
+# ----------------------------
+# Test & development artifacts
+# ----------------------------
+cypress/videos/
+cypress/screenshots/
+
+# ----------------------------
+# Editor & IDE settings
+# ----------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 *.swp
 
+# ----------------------------
+# OS-specific files
+# ----------------------------
 .DS_Store
 Thumbs.db
-services/public
 
-# Ignore Go build artifacts
+# ----------------------------
+# Project-specific exclusions
+# ----------------------------
+services/public
+auth-service
+services/db/
+signage_pgdata/
+
+# ----------------------------
+# Go build artifacts
+# ----------------------------
 bin/
 *.exe
 *.out
 *.test
 
-# Ignore other services you don’t need in this build
-./services/db/
-
-# Ignore node stuff if present
-node_modules/
-dist/
-
-.env
-.env.*
-*.http
-
+# ----------------------------
+# Misc
+# ----------------------------
 README.md
 docker-compose.yml
-auth-service

@@ -1,0 +1,3 @@
+-- +migrate Down
+DROP TABLE IF EXISTS Location CASCADE;
+DROP TABLE IF EXISTS Business CASCADE;

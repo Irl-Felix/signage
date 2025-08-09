@@ -1,0 +1,3 @@
+INSERT INTO SessionLog (user_id, login_at, ip_address, user_agent, access_token, refresh_token, token_expires_at) VALUES
+((SELECT id FROM UserProfile WHERE email='alice.chen@example.com'), CURRENT_TIMESTAMP - INTERVAL '2 hours', '203.0.113.1', 'Mozilla/5.0', 'token1', 'refresh1', CURRENT_TIMESTAMP + INTERVAL '1 hour'),
+((SELECT id FROM UserProfile WHERE email='bob.wang@example.com'), CURRENT_TIMESTAMP - INTERVAL '1 day', '198.51.100.2', 'Mozilla/5.0', 'token2', 'refresh2', CURRENT_TIMESTAMP + INTERVAL '2 hours');

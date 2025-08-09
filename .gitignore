@@ -1,7 +1,49 @@
+# Environment files
+.env
+.env.*
 **/.env
-.env**
-**.http
+**/.env.*
 
+# HTTP request test files
+*.http
+
+# Local service data
 services/public
 auth-service
 signage_pgdata/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node.js dependencies
+node_modules/
+
+# OS files
+.DS_Store
+
+# Build output
+dist/
+dist-ssr/
+coverage/
+*.local
+*.tsbuildinfo
+
+# Cypress output
+cypress/videos/
+cypress/screenshots/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
