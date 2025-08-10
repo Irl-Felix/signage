@@ -1,39 +1,51 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import UsersView from '@/views/UsersView.vue'
-import RolesPermissionsView from '@/views/RolesPermissionsView.vue'
-import TenantsView from '@/views/TenantsView.vue'
-import LogsView from '@/views/LogsView.vue'
+import { createRouter, createWebHistory } from "vue-router";
+import HomeView from "../views/HomeView.vue";
+import UsersView from "@/views/UsersView.vue";
+import RolesPermissionsView from "@/views/RolesPermissionsView.vue";
+import TenantsView from "@/views/TenantsView.vue";
+import LogsView from "@/views/LogsView.vue";
+import LoginPage from "../views/LoginPage.vue";
+import RegistrationPage from "../views/RegistrationPage.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
-      name: 'home',
+      path: "/",
+      name: "home",
       component: HomeView,
     },
     {
-      path: '/users',
-      name: 'users',
+      path: "/users",
+      name: "users",
       component: UsersView,
     },
     {
-      path: '/roleperm',
-      name: 'roles-permissions',
+      path: "/roleperm",
+      name: "roles-permissions",
       component: RolesPermissionsView,
     },
     {
-      path: '/tenants',
-      name: 'tenants',
+      path: "/tenants",
+      name: "tenants",
       component: TenantsView,
     },
     {
-      path: '/logs',
-      name: 'logs',
+      path: "/logs",
+      name: "logs",
       component: LogsView,
     },
+    {
+      path: "/login",
+      name: "login",
+      component: LoginPage,
+    },
+    {
+      path: "/register",
+      name: "register",
+      component: RegistrationPage,
+    },
   ],
-})
+});
 
-export default router
+export default router;
