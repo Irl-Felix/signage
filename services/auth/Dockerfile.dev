@@ -5,7 +5,14 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Install dependencies required to build and run Air
+RUN apk add --no-cache git \
+    && go install github.com/air-verse/air@latest
+
 COPY . .
 
-# Build and run the binary every time the container starts
-ENTRYPOINT ["sh", "-c", "cd services/auth && go build -o auth-service . && ./auth-service"]
+# Expose service port (optional)
+EXPOSE 8080
+
+# Use Air for hot reload (config lives at services/auth/.air.toml)
+ENTRYPOINT ["sh", "-c", "air -c services/auth/.air.toml"]

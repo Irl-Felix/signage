@@ -1,0 +1,23 @@
+# Air config for auth service (hot reload in container)
+root = "."
+tmp_dir = "tmp"
+
+[log]
+time = true
+
+[build]
+# Build the auth service binary into tmp/
+cmd = "go build -o ./tmp/auth-service ./services/auth"
+bin = "tmp/auth-service"
+# Stop the old process before building new binary
+stop_on_error = true
+include_ext = ["go", "tpl", "tmpl", "html", "sql"]
+exclude_dir = ["tmp", "vendor", "node_modules", "frontend", ".git"]
+
+[watch]
+# Watch everything under the repo; patterns above filter what triggers rebuilds
+paths = ["."]
+
+[env]
+# Pass through port (your app should listen on 0.0.0.0:8080)
+PORT = "8080"
