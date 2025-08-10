@@ -30,6 +30,8 @@ services:
   frontend:
     image: node:20
     working_dir: /app
+    env_file:
+      - ./frontend/.env.docker
     volumes:
       - ./frontend:/app
     ports:
