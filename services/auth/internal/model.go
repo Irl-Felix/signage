@@ -46,3 +46,15 @@ type UserStats struct {
 	PendingUsers   int `json:"pending_users"`
 	SuspendedUsers int `json:"suspended_users"`
 }
+
+// UserTestView is a model for the frontend test endpoint
+type UserTestView struct {
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	Business    string `json:"business"`
+	GlobalRole  string `json:"global_role"`
+	Status      string `json:"status"`
+	Session     bool   `json:"session"`
+	CreatedAt   string `json:"created_at"`
+	ProfileURL  string `json:"profile_url"`
+}

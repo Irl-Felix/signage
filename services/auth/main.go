@@ -9,6 +9,7 @@ import (
 
 	"github.com/Irl-Felix/signage/services/auth/internal"
 	"github.com/Irl-Felix/signage/shared/auth"
+	"github.com/Irl-Felix/signage/shared/middleware"
 	"github.com/Irl-Felix/signage/shared/util"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
@@ -53,7 +54,8 @@ func main() {
 	// ==============================
 
 	   // --- User Management ---
-	   http.HandleFunc("GET /admin/users", (handler.ListUsers))    // List all users
+	//    http.HandleFunc("GET /admin/users", (handler.ListUsers))    // List all users
+	   http.HandleFunc("GET /admin/users/test", handler.ListUsersTest) // Test endpoint for frontend shape
 	   http.HandleFunc("GET /admin/users/{id}", auth.Middleware("MANAGE_USERS")(handler.GetUser)) // Get a specific user by ID
 	   http.HandleFunc("POST /admin/users/assign-role", (handler.AssignUserRole))                 // Assign a role to a user
 	   http.HandleFunc("GET /admin/users/{id}/permissions", (handler.GetUserPermissions))         // Get permissions for a specific user
@@ -110,9 +112,10 @@ func main() {
 		})
 	})
 
-	log.Println("Server started on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		util.LogError(err, "Server failed")
-		panic("Server failed")
-	}
+	   allowedOrigins := []string{"http://localhost:5173", "http://frontend:5173"}
+	   log.Println("Server started on :8080")
+	   if err := http.ListenAndServe(":8080", middleware.CORS(allowedOrigins)(http.DefaultServeMux)); err != nil {
+			   util.LogError(err, "Server failed")
+			   panic("Server failed")
+	   }
 }

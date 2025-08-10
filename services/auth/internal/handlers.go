@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,109 @@ type Handler struct {
 	Service *AuthService
 }
 
+// ListUsersTest returns users in the shape expected by the frontend
+func (h *Handler) ListUsersTest(w http.ResponseWriter, r *http.Request) {
+	// Parse filters
+	q := r.URL.Query()
+	search := strings.TrimSpace(q.Get("search"))
+	status := strings.TrimSpace(q.Get("status"))
+	role := strings.TrimSpace(q.Get("role"))
+
+	baseQuery := `
+		SELECT 
+			up.first_name || ' ' || up.last_name AS name,
+			up.email,
+			b.name AS business,
+			r.role_code AS global_role,
+			up.status,
+			COALESCE(sl.is_active, false) AS session,
+			up.created_at,
+			up.profile_picture_url
+		FROM UserProfile up
+		LEFT JOIN UserRoleAssignment ura ON ura.user_id = up.id AND ura.business_id IS NULL
+		LEFT JOIN Role r ON ura.role_id = r.id AND r.scope = 'global'
+		LEFT JOIN UserRoleAssignment urab ON urab.user_id = up.id AND urab.business_id IS NOT NULL
+		LEFT JOIN Role r2 ON urab.role_id = r2.id
+		LEFT JOIN Business b ON urab.business_id = b.id
+		LEFT JOIN LATERAL (
+			SELECT is_active FROM SessionLog WHERE user_id = up.id ORDER BY login_at DESC LIMIT 1
+		) sl ON true
+	`
+
+	var (
+		where []string
+		args  []interface{}
+	)
+	argPos := 1
+	if search != "" {
+		n := strconv.Itoa(argPos)
+		where = append(where, "(up.first_name ILIKE '%' || $"+n+" || '%' OR up.last_name ILIKE '%' || $"+n+" || '%' OR up.email ILIKE '%' || $"+n+" || '%' OR b.name ILIKE '%' || $"+n+" || '%')")
+		args = append(args, search)
+		argPos++
+	}
+	if status != "" {
+		n := strconv.Itoa(argPos)
+		where = append(where, "LOWER(up.status) = LOWER($"+n+")")
+		args = append(args, status)
+		argPos++
+	}
+	if role != "" {
+		n := strconv.Itoa(argPos)
+		where = append(where, "(UPPER(r.role_code) = UPPER($"+n+") OR UPPER(r2.role_code) = UPPER($"+n+"))")
+		args = append(args, role)
+		argPos++
+	}
+
+	query := baseQuery
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+
+	rows, err := h.Service.DB.Query(query, args...)
+	if err != nil {
+		util.HandleError(w, err, "Failed to list users (test shape)", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var users []UserTestView
+	for rows.Next() {
+		var (
+			name, email, business, globalRole, statusStr, profileURL sql.NullString
+			session bool
+			createdAtRaw interface{}
+		)
+		if err := rows.Scan(&name, &email, &business, &globalRole, &statusStr, &session, &createdAtRaw, &profileURL); err != nil {
+			util.HandleError(w, err, "Failed to scan user (test shape)", http.StatusInternalServerError)
+			return
+		}
+		u := UserTestView{
+			Name:       name.String,
+			Email:      email.String,
+			Business:   business.String,
+			GlobalRole: globalRole.String,
+			Status:     statusStr.String,
+			Session:    session,
+			ProfileURL: profileURL.String,
+		}
+		// Format created_at as RFC3339 string
+		switch t := createdAtRaw.(type) {
+		case string:
+			u.CreatedAt = t
+		case []byte:
+			u.CreatedAt = string(t)
+		case nil:
+			u.CreatedAt = ""
+		default:
+			u.CreatedAt = ""
+		}
+		users = append(users, u)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"users": users,
+	})
+}
 // ==============================
 // Public Authentication Handlers
 // ==============================
@@ -825,13 +929,13 @@ func (h *Handler) RemoveUserRole(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// UserStatsHandler returns user statistics (counts by status)
+// UserStatsHandler returns user statistics for the admin dashboard
 func (h *Handler) UserStatsHandler(w http.ResponseWriter, r *http.Request) {
-	   stats, err := h.Service.GetUserStats()
-	   if err != nil {
-			   util.HandleError(w, err, "Failed to get user stats", http.StatusInternalServerError)
-			   return
-	   }
-	   w.Header().Set("Content-Type", "application/json")
-	   json.NewEncoder(w).Encode(stats)
+	stats, err := h.Service.GetUserStats()
+	if err != nil {
+		util.HandleError(w, err, "Failed to get user stats", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
