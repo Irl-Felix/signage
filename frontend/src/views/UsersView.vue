@@ -52,59 +52,53 @@
     </v-col>
   </v-row>
 
-  <!-- Search & Filters -->
-  <v-row class="mb-4" dense>
-    <!-- Search Bar -->
-    <v-col cols="12" md="4">
+  <!-- Filters -->
+  <v-row class="mb-2" dense>
+    <v-col cols="12" sm="4">
       <v-text-field
         v-model="filters.search"
-        placeholder="Search users..."
+        label="Search users"
         prepend-inner-icon="mdi-magnify"
-        density="compact"
         variant="outlined"
-        hide-details
         clearable
+        hide-details="auto"
+        dense
+        class="mr-2"
+        @keyup.enter="fetchUsers"
+        @click:clear="fetchUsers"
       />
     </v-col>
-
-    <!-- Status Filter -->
-    <v-col cols="12" sm="6" md="4">
+    <v-col cols="12" sm="4">
       <v-select
         v-model="filters.status"
         :items="statusOptions"
         label="Status"
-        clearable
-        density="compact"
         variant="outlined"
-        hide-details
+        clearable
+        hide-details="auto"
+        dense
+        class="mr-2"
       />
     </v-col>
-
-    <!-- Role Filter -->
-    <v-col cols="12" sm="6" md="4">
+    <v-col cols="12" sm="4">
       <v-select
         v-model="filters.role"
         :items="roleOptions"
-        label="Global Role"
-        clearable
-        density="compact"
+        label="Role"
         variant="outlined"
-        hide-details
+        clearable
+        hide-details="auto"
+        dense
       />
     </v-col>
   </v-row>
 
   <!-- Data Table -->
   <v-data-table-server
-    v-model:page="pagination.page"
-    v-model:items-per-page="pagination.itemsPerPage"
-    v-model:sort-by="pagination.sortBy"
     :headers="headers"
-    :items="users"
+    :items="displayedUsers"
     :loading="loading"
-    :server-items-length="totalUsers"
-    :items-length="totalUsers"
-    :items-per-page-options="[5, 10, 25, 50]"
+    :items-length="displayedUsers.length"
     density="comfortable"
     class="elevation-1"
   >
@@ -169,35 +163,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
-
-const filters = ref({
-  search: "",
-  status: null,
-  role: null,
-});
+import { ref, onMounted, watch, computed } from "vue";
 
 const stats = ref({
-  activeUsers: 120,
-  pendingUsers: 15,
-  suspendedUsers: 5,
-  totalUsers: 140,
+  totalUsers: 0,
+  activeUsers: 0,
+  pendingUsers: 0,
+  suspendedUsers: 0,
 });
-
-const statusOptions = [
-  { title: "Active", value: "active" },
-  { title: "Pending", value: "pending" },
-  { title: "Suspended", value: "suspended" },
-];
-const roleOptions = [
-  { title: "System Admin", value: "SYS_ADMIN" },
-  { title: "Support Admin", value: "SUPPORT_ADMIN" },
-  { title: "Viewer Global", value: "VIEWER_GLOBAL" },
-];
 
 const loading = ref(false);
 interface User {
-  avatar?: string;
+  avatar?: string; // derived from profile_url
   name: string;
   email: string;
   business: string;
@@ -205,16 +182,32 @@ interface User {
   status?: string;
   session?: boolean;
   created_at?: string;
+  profile_url?: string;
 }
 
 const users = ref<User[]>([]);
-const totalUsers = ref(0);
 
-const pagination = ref({
-  page: 1,
-  itemsPerPage: 10,
-  sortBy: [{ key: "created_at", order: "desc" as const }],
+// Filter state
+const filters = ref({
+  search: "",
+  status: null as string | null,
+  role: null as string | null,
 });
+
+const statusOptions = [
+  { title: "All Statuses", value: null },
+  { title: "Active", value: "active" },
+  { title: "Pending", value: "pending" },
+  { title: "Suspended", value: "suspended" },
+];
+// Update roleOptions to match backend role codes
+const roleOptions = [
+  { title: "All Roles", value: null },
+  { title: "System Admin", value: "SYS_ADMIN" },
+  { title: "Business Owner", value: "BUSINESS_OWNER" },
+  { title: "Branch Manager", value: "BRANCH_MANAGER" },
+  { title: "Content Editor", value: "CONTENT_EDITOR" },
+];
 
 const headers = [
   { title: "", key: "avatar", sortable: false },
@@ -227,53 +220,71 @@ const headers = [
   { title: "Actions", key: "actions", sortable: false },
 ];
 
-// API integration via Vite env variable (base), fixed path
+// API base uses relative path; Vite dev server and Nginx will proxy /api to backend
 function joinUrl(base: string, path: string) {
   if (!base.endsWith("/") && !path.startsWith("/")) return `${base}/${path}`;
   if (base.endsWith("/") && path.startsWith("/"))
     return `${base}${path.slice(1)}`;
   return `${base}${path}`;
 }
-const API_URL = joinUrl(import.meta.env.VITE_BACKEND_URL, "/admin/users");
-const abortController = ref<AbortController | null>(null);
+const API_BASE = "/api";
 
-function debounce<F extends (...args: unknown[]) => void>(fn: F, wait = 300) {
-  let t: ReturnType<typeof setTimeout> | undefined;
-  return (...args: Parameters<F>) => {
-    if (t) clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
-  };
+const API_URL = joinUrl(API_BASE, "/admin/users/test");
+const STATS_URL = joinUrl(API_BASE, "/admin/users/stats");
+const abortController = ref<AbortController | null>(null);
+// Fetch user stats for dashboard cards
+async function fetchUserStats() {
+  try {
+    const res = await fetch(STATS_URL, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`Stats request failed: ${res.status}`);
+    const json = await res.json();
+    // Defensive: check for expected keys
+    stats.value = {
+      totalUsers: json.total_users ?? 0,
+      activeUsers: json.active_users ?? 0,
+      pendingUsers: json.pending_users ?? 0,
+      suspendedUsers: json.suspended_users ?? 0,
+    };
+  } catch (err) {
+    console.error("Failed to load user stats", err);
+    // Optionally: keep stats as zeroes
+  }
 }
 
 function buildQueryParams() {
   const params = new URLSearchParams();
-  params.set("page", String(pagination.value.page));
-  params.set("per_page", String(pagination.value.itemsPerPage));
-
-  const sort = pagination.value.sortBy?.[0];
-  if (sort?.key) {
-    params.set("sort", String(sort.key));
-    params.set("order", sort.order ?? "asc");
-  }
-
-  if (filters.value.search) params.set("search", filters.value.search);
-  if (filters.value.status) params.set("status", String(filters.value.status));
-  if (filters.value.role) params.set("role", String(filters.value.role));
-
-  return params;
+  if (filters.value.search) params.append("search", filters.value.search);
+  if (filters.value.status) params.append("status", filters.value.status);
+  if (filters.value.role) params.append("role", filters.value.role);
+  return params.toString();
 }
+
+// Debounce helper typed without any
+function debounce<F extends (...args: unknown[]) => void>(fn: F, delay = 300) {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  return (...args: Parameters<F>) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), delay);
+  };
+}
+
+const debouncedFetchUsers = debounce(() => fetchUsers(), 300);
 
 async function fetchUsers() {
   try {
     loading.value = true;
-    // Cancel any in-flight request
     if (abortController.value) abortController.value.abort();
     abortController.value = new AbortController();
 
-    const url = new URL(API_URL);
-    url.search = buildQueryParams().toString();
+    let url = API_URL;
+    const query = buildQueryParams();
+    if (query) url += `?${query}`;
 
-    const res = await fetch(url.toString(), {
+    console.log("[Users] Fetch:", url);
+
+    const res = await fetch(url, {
       method: "GET",
       headers: { Accept: "application/json" },
       signal: abortController.value.signal,
@@ -282,47 +293,16 @@ async function fetchUsers() {
 
     const json = (await res.json()) as unknown;
 
-    function getTotalLike(obj: Record<string, unknown>, itemsLen: number) {
-      const meta =
-        typeof obj.meta === "object" && obj.meta !== null
-          ? (obj.meta as Record<string, unknown>)
-          : undefined;
-      const candidates = [obj.total, obj.count, meta?.total];
-      for (const c of candidates) {
-        if (typeof c === "number") return c;
-        if (
-          typeof c === "string" &&
-          c.trim() !== "" &&
-          !Number.isNaN(Number(c))
-        )
-          return Number(c);
-      }
-      return itemsLen;
-    }
-
-    if (Array.isArray(json)) {
-      users.value = json as User[];
-      totalUsers.value = json.length;
-    } else if (typeof json === "object" && json !== null) {
-      const obj = json as Record<string, unknown>;
-
-      if (Array.isArray(obj.data)) {
-        users.value = obj.data as User[];
-        totalUsers.value = getTotalLike(obj, (obj.data as unknown[]).length);
-      } else if (Array.isArray(obj.items)) {
-        users.value = obj.items as User[];
-        totalUsers.value = getTotalLike(obj, (obj.items as unknown[]).length);
-      } else if (Array.isArray(obj.users)) {
-        users.value = obj.users as User[];
-        totalUsers.value = getTotalLike(obj, (obj.users as unknown[]).length);
-      } else {
-        users.value = [];
-        totalUsers.value = 0;
-        console.warn("Unexpected API response shape", json);
-      }
+    // Expecting { users: User[] }
+    type UsersResponse = { users: User[] };
+    const data = json as UsersResponse;
+    if (data && Array.isArray(data.users)) {
+      users.value = data.users.map((u) => ({
+        ...u,
+        avatar: u.profile_url || undefined,
+      }));
     } else {
       users.value = [];
-      totalUsers.value = 0;
       console.warn("Unexpected API response shape", json);
     }
   } catch (err: unknown) {
@@ -335,37 +315,40 @@ async function fetchUsers() {
   }
 }
 
-const debouncedFetchUsers = debounce(fetchUsers, 400);
-
-// Watch pagination and sorting
-watch(
-  [
-    () => pagination.value.page,
-    () => pagination.value.itemsPerPage,
-    () => pagination.value.sortBy,
-  ],
-  () => {
-    fetchUsers();
-  },
-  { deep: true }
-);
-
-// Watch filters (debounce search, immediate for others)
-watch(
-  () => filters.value.search,
-  () => {
-    pagination.value.page = 1;
-    debouncedFetchUsers();
-  }
-);
-
-watch([() => filters.value.status, () => filters.value.role], () => {
-  pagination.value.page = 1;
-  fetchUsers();
-});
-
 onMounted(() => {
   fetchUsers();
+  fetchUserStats();
+});
+
+// Watchers
+watch(
+  () => filters.value.search,
+  () => debouncedFetchUsers()
+);
+watch(() => [filters.value.status, filters.value.role], fetchUsers);
+
+const displayedUsers = computed(() => {
+  const s = (filters.value.search || "").trim().toLowerCase();
+  const st = (filters.value.status || "").toLowerCase();
+  const rl = (filters.value.role || "").toLowerCase();
+
+  return users.value.filter((u) => {
+    // search across name, email, business
+    if (s) {
+      const hay =
+        `${u.name || ""} ${u.email || ""} ${u.business || ""}`.toLowerCase();
+      if (!hay.includes(s)) return false;
+    }
+    // status match
+    if (st) {
+      if ((u.status || "").toLowerCase() !== st) return false;
+    }
+    // role match (codes like SYS_ADMIN)
+    if (rl) {
+      if ((u.global_role || "").toLowerCase() !== rl) return false;
+    }
+    return true;
+  });
 });
 
 function getInitials(name: string) {
